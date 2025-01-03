@@ -4,7 +4,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 // @ts-ignore
 import SignatureCanvas from 'react-signature-canvas';
 import {PDFDocument} from 'pdf-lib';
-
+import { Analytics } from "@vercel/analytics/react"
 function App() {
     const [file, setFile] = useState<File | null>(null);
     const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
@@ -340,6 +340,7 @@ function App() {
                 Derrick Dsouza
             </a>
             </p>
+            <Analytics />
         </div>
     );
 }
