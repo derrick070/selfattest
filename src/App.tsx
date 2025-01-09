@@ -5,7 +5,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import SignatureCanvas from 'react-signature-canvas';
 import {PDFDocument} from 'pdf-lib';
 import {Analytics} from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 function App() {
     const [file, setFile] = useState<File | null>(null);
