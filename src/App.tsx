@@ -4,7 +4,9 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 // @ts-ignore
 import SignatureCanvas from 'react-signature-canvas';
 import {PDFDocument} from 'pdf-lib';
-import { Analytics } from "@vercel/analytics/react"
+import {Analytics} from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+
 function App() {
     const [file, setFile] = useState<File | null>(null);
     const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
@@ -15,8 +17,7 @@ function App() {
     const toggleDarkMode = () => {
         setDarkMode((prev) => !prev);
     };
-
-    // Handles PDF file upload
+// Handles PDF file upload
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFile = event.target.files?.[0];
         if (uploadedFile && uploadedFile.type === 'application/pdf') {
@@ -47,7 +48,6 @@ function App() {
         }
     };
 
-    // Handles "Attest" functionality
     const handleAttest = async () => {
         if (!file || (!sigPad.current && !uploadedSignature)) {
             alert('Please upload a PDF and provide a signature first.');
@@ -58,28 +58,22 @@ function App() {
             const fileArrayBuffer = await file.arrayBuffer();
             const pdfDoc = await PDFDocument.load(fileArrayBuffer);
             const newPdfDoc = await PDFDocument.create();
-
             const originalPages = pdfDoc.getPages();
             for (let i = 0; i < originalPages.length; i++) {
                 const originalPage = originalPages[i];
-                const {width, height} = originalPage.getSize();
-
+                const { width, height } = originalPage.getSize();
                 const isLastPage = i === originalPages.length - 1;
                 const extraHeight = isLastPage ? 100 : 0;
 
                 const newPage = newPdfDoc.addPage([width, height + extraHeight]);
                 const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
                 const embeddedPage = await newPdfDoc.embedPage(copiedPage);
-                newPage.drawPage(embeddedPage, {x: 0, y: extraHeight, width, height});
+                newPage.drawPage(embeddedPage, { x: 0, y: extraHeight, width, height });
 
                 if (isLastPage) {
                     let signatureImageBytes;
 
                     if (uploadedSignature) {
-                        if (!uploadedSignature.startsWith('data:image')) {
-                            alert('Invalid signature image format.');
-                            return;
-                        }
                         signatureImageBytes = await fetch(uploadedSignature).then((res) =>
                             res.arrayBuffer()
                         );
@@ -101,7 +95,7 @@ function App() {
             }
 
             const pdfBytes = await newPdfDoc.save();
-            const blob = new Blob([pdfBytes], {type: 'application/pdf'});
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = 'attested-document.pdf';
@@ -110,7 +104,6 @@ function App() {
             console.error('Error while attesting the document:', error);
         }
     };
-
     const handlePDFDrop = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         const droppedFile = event.dataTransfer.files[0];
@@ -154,8 +147,14 @@ function App() {
                 boxSizing: 'border-box',
             }}
         >
-            {/* Dark Mode Toggle */}
-            <div style={{textAlign: 'right', marginBottom: '20px', width: '100%'}}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                width: '100%',
+                marginBottom: '20px'
+            }}>
+                <h1 style={{margin: 0}}>Document Attestation with Signature</h1>
                 <button
                     onClick={toggleDarkMode}
                     style={{
@@ -165,16 +164,13 @@ function App() {
                         border: 'none',
                         borderRadius: '5px',
                         cursor: 'pointer',
-                        display: 'inline-block',
                         fontSize: '16px',
-                        marginTop: '20px'
                     }}
                 >
                     {darkMode ? 'Light Mode' : 'Dark Mode'}
                 </button>
             </div>
 
-            <h1>Document Attestation with Signature</h1>
             <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handlePDFDrop}
@@ -335,16 +331,16 @@ function App() {
                 href="https://www.linkedin.com/in/derrick-dsouza-007"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: darkMode ? '#4da6ff' : '#0066cc', textDecoration: 'none' }}
+                style={{color: darkMode ? '#4da6ff' : '#0066cc', textDecoration: 'none'}}
             >
                 Derrick Dsouza
             </a>
             </p>
-            <Analytics />
+            <Analytics/>
+            <SpeedInsights />
         </div>
     );
 }
-
 
 
 export default App;
