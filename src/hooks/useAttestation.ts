@@ -1,142 +1,146 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { attestPdf, readFileAsDataURL } from '../utils/pdfUtils';
+import { attestPdf } from '../utils/pdfUtils';
 
 const useAttestation = () => {
-  // State variables
   const [darkMode, setDarkMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
   const [attestedPdfUrl, setAttestedPdfUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(true);
   const [hasSignature, setHasSignature] = useState(false);
   const [applicationStarted, setApplicationStarted] = useState(false);
+  const [signatureMode, setSignatureMode] = useState<'draw' | 'upload' | 'text'>('draw');
+  const [textSignature, setTextSignature] = useState<string>('');
   
-  // References
   const sigPad = useRef<SignatureCanvas>(null);
   
-  // Toggle dark mode
   const toggleDarkMode = () => {
     setDarkMode(prev => !prev);
   };
   
-  // Start the application
-  const startApplication = () => {
+  const startApplication = useCallback(() => {
     setApplicationStarted(true);
-  };
+  }, []);
   
-  // Navigation functions
-  const goToNextStep = () => {
-    if (currentStep < 2) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
+  const goToNextStep = useCallback(() => {
+    setCurrentStep(prev => Math.min(prev + 1, 2));
+  }, []);
   
-  const goToPreviousStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
+  const goToPreviousStep = useCallback(() => {
+    setCurrentStep(prev => Math.max(prev - 1, 0));
+  }, []);
   
-  // Reset the process
-  const resetProcess = () => {
+  const resetProcess = useCallback(() => {
+    setCurrentStep(0);
     setFile(null);
     setUploadedSignature(null);
-    setCurrentStep(0);
     setAttestedPdfUrl(null);
+    setHasSignature(false);
     if (sigPad.current) {
       sigPad.current.clear();
     }
-    setHasSignature(false);
-  };
+  }, []);
   
-  // Clear the signature
-  const clearSignature = () => {
+  const clearSignature = useCallback(() => {
     if (sigPad.current) {
       sigPad.current.clear();
       setHasSignature(false);
     }
-  };
+    setUploadedSignature(null);
+    setTextSignature('');
+  }, []);
   
-  // Handle file upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
     }
-  };
+  }, []);
   
-  // Handle PDF drop
-  const handlePDFDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const droppedFile = e.dataTransfer.files[0];
+  const handlePDFDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const droppedFile = event.dataTransfer.files[0];
     if (droppedFile && droppedFile.type === 'application/pdf') {
       setFile(droppedFile);
     }
-  };
+  }, []);
   
-  // Handle signature upload
-  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type.startsWith('image/')) {
-      try {
-        const dataUrl = await readFileAsDataURL(selectedFile);
-        setUploadedSignature(dataUrl);
-      } catch (error) {
-        console.error("Error reading signature file:", error);
-      }
+  const handleSignatureUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setUploadedSignature(result);
+        setHasSignature(true);
+      };
+      reader.readAsDataURL(file);
     }
-  };
+  }, []);
   
-  // Handle signature drop
-  const handleSignatureDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type.startsWith('image/')) {
-      try {
-        const dataUrl = await readFileAsDataURL(droppedFile);
-        setUploadedSignature(dataUrl);
-      } catch (error) {
-        console.error("Error reading signature file:", error);
-      }
+  const handleSignatureDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setUploadedSignature(result);
+        setHasSignature(true);
+      };
+      reader.readAsDataURL(file);
     }
-  };
+  }, []);
   
-  // Handle signature drawing
-  const handleSignatureEnd = () => {
+  const handleSignatureEnd = useCallback(() => {
     if (sigPad.current && !sigPad.current.isEmpty()) {
       setHasSignature(true);
     }
-  };
+  }, []);
   
-  // Handle attestation
-  const handleAttest = async () => {
+  const handleAttest = useCallback(async () => {
     if (!file) return;
     
-    let signatureDataUrl: string;
+    let signatureDataUrl: string | null = null;
     
-    if (uploadedSignature) {
+    if (signatureMode === 'upload' && uploadedSignature) {
       signatureDataUrl = uploadedSignature;
-    } else if (sigPad.current && !sigPad.current.isEmpty()) {
+    } else if (signatureMode === 'draw' && sigPad.current && !sigPad.current.isEmpty()) {
       signatureDataUrl = sigPad.current.toDataURL('image/png');
-    } else {
-      return;
+    } else if (signatureMode === 'text' && textSignature.trim()) {
+      // Create a canvas to render the text signature
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 200;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        ctx.fillStyle = darkMode ? 'white' : 'black';
+        ctx.font = 'italic 48px cursive';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(textSignature, canvas.width / 2, canvas.height / 2);
+        signatureDataUrl = canvas.toDataURL('image/png');
+      }
     }
+    
+    if (!signatureDataUrl) return;
     
     setIsProcessing(true);
     
     try {
-      const url = await attestPdf(file, signatureDataUrl);
-      setAttestedPdfUrl(url);
-      setCurrentStep(2); // Move to download step
+      const attestedUrl = await attestPdf(file, signatureDataUrl);
+      setAttestedPdfUrl(attestedUrl);
+      setCurrentStep(2);
     } catch (error) {
-      console.error("Error attesting document:", error);
+      console.error('Error attesting PDF:', error);
+      // Handle error
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [file, uploadedSignature, signatureMode, textSignature, darkMode]);
   
   return {
     darkMode,
@@ -145,7 +149,6 @@ const useAttestation = () => {
     uploadedSignature,
     attestedPdfUrl,
     isProcessing,
-    showExplanation,
     hasSignature,
     applicationStarted,
     sigPad,
@@ -161,10 +164,12 @@ const useAttestation = () => {
     handleSignatureDrop,
     handleAttest,
     handleSignatureEnd,
-    setShowExplanation,
     setFile,
     setUploadedSignature,
-    setHasSignature,
+    signatureMode,
+    setSignatureMode,
+    textSignature,
+    setTextSignature,
   };
 };
 

@@ -4,7 +4,7 @@ interface NavigationControlsProps {
   currentStep: number;
   goToPreviousStep: () => void;
   goToNextStep: () => void;
-  isNextDisabled?: boolean;
+  isNextDisabled: boolean;
   darkMode: boolean;
 }
 
@@ -12,7 +12,7 @@ const NavigationControls: React.FC<NavigationControlsProps> = ({
   currentStep,
   goToPreviousStep,
   goToNextStep,
-  isNextDisabled = false,
+  isNextDisabled,
   darkMode,
 }) => {
   return (
@@ -22,7 +22,7 @@ const NavigationControls: React.FC<NavigationControlsProps> = ({
           onClick={goToPreviousStep}
           className={`px-4 sm:px-6 py-2 sm:py-3 ${
             darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
-          } rounded-lg font-medium text-sm sm:text-base flex items-center`}
+          } rounded-2xl font-medium text-sm sm:text-base flex items-center shadow-md hover:shadow-lg transition-all`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
             className={`mr-2 ${darkMode ? 'stroke-white' : 'stroke-gray-700'}`}>
@@ -32,29 +32,27 @@ const NavigationControls: React.FC<NavigationControlsProps> = ({
           Previous
         </button>
       ) : (
-        <div></div> // Empty div to maintain the flex layout
+        <div></div>
       )}
       
-      {currentStep < 2 && (
-        <button
-          onClick={goToNextStep}
-          disabled={isNextDisabled}
-          className={`px-4 sm:px-6 py-2 sm:py-3 ${
-            isNextDisabled
-              ? 'bg-gray-400 cursor-not-allowed'
-              : darkMode
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-blue-500 hover:bg-blue-600'
-          } text-white rounded-lg font-medium text-sm sm:text-base flex items-center`}
-        >
-          Next
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
-            className="ml-2 stroke-white">
-            <path d="M5 12h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      )}
+      <button
+        onClick={goToNextStep}
+        disabled={isNextDisabled}
+        className={`px-4 sm:px-6 py-2 sm:py-3 ${
+          isNextDisabled
+            ? 'bg-gray-400 cursor-not-allowed' 
+            : darkMode 
+              ? 'bg-blue-600 hover:bg-blue-700' 
+              : 'bg-blue-500 hover:bg-blue-600'
+        } text-white rounded-2xl font-medium flex items-center text-sm sm:text-base shadow-md hover:shadow-lg transition-all`}
+      >
+        Next
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+          className="stroke-white ml-2">
+          <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <polyline points="12 5 19 12 12 19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
     </div>
   );
 };

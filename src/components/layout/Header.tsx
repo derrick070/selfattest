@@ -8,7 +8,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
   return (
     <header className="w-full py-3 sm:py-4 mb-4 sm:mb-6">
-      <div className="container mx-auto px-4 flex justify-between items-center">
+      <div className="container mx-auto px-4">
+        <div className={`flex justify-between items-center p-3 sm:p-4 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
         <div className="flex items-center">
           <svg
             width="28"
@@ -73,6 +74,7 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
             </svg>
           )}
         </button>
+        </div>
       </div>
     </header>
   );
