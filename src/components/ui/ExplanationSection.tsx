@@ -75,13 +75,13 @@ const ExplanationSection: React.FC<ExplanationSectionProps> = ({
   ];
   
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
+    <div className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 ${
       showExplanation ? 'opacity-100' : 'opacity-0 pointer-events-none'
     } transition-opacity duration-300 ease-in-out ${
       darkMode ? 'bg-gray-900/95' : 'bg-gray-100/95'
     }`}>
       <div 
-        className={`w-full max-w-4xl p-6 sm:p-8 rounded-xl ${
+        className={`w-full max-w-4xl p-6 sm:p-8 rounded-xl my-4 ${
           darkMode ? 'bg-gray-800' : 'bg-white'
         } shadow-2xl transition-all duration-500 ease-in-out transform ${
           showExplanation ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'
