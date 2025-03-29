@@ -1,0 +1,847 @@
+import React, {useRef, useState, useEffect} from 'react';
+import {Viewer, Worker} from '@react-pdf-viewer/core';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+// @ts-ignore
+import SignatureCanvas from 'react-signature-canvas';
+import {PDFDocument} from 'pdf-lib';
+import {Analytics} from "@vercel/analytics/react"
+import {SpeedInsights} from "@vercel/speed-insights/react"
+
+function App() {
+    const [darkMode, setDarkMode] = useState(false);
+    const [currentStep, setCurrentStep] = useState(0); // 0: Upload Doc, 1: Add Signature, 2: Download
+    const [file, setFile] = useState<File | null>(null);
+    const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [attestedPdfUrl, setAttestedPdfUrl] = useState<string | null>(null);
+    const [activeStep, setActiveStep] = useState(0);
+    const [showExplanation, setShowExplanation] = useState(true);
+    
+    const sigPad = useRef<SignatureCanvas>(null);
+
+    // Animation for steps in explanation
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setActiveStep((prev) => (prev + 1) % 3);
+        }, 3000);
+        
+        return () => clearInterval(interval);
+    }, []);
+    
+    // Toggle dark mode
+    const toggleDarkMode = () => {
+        setDarkMode(!darkMode);
+    };
+    
+    // Check system preference for dark mode on initial load
+    useEffect(() => {
+        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setDarkMode(prefersDarkMode);
+    }, []);
+    
+    // Apply background color when dark mode changes
+    useEffect(() => {
+        if (darkMode) {
+            document.body.style.backgroundColor = '#1a1a1a';
+            document.body.style.color = '#ffffff';
+        } else {
+            document.body.style.backgroundColor = '#ffffff';
+            document.body.style.color = '#000000';
+        }
+    }, [darkMode]);
+    
+    // Skip explanation and go to upload
+    const skipExplanation = () => {
+        setShowExplanation(false);
+    };
+
+    // Navigation functions for steps
+    const goToNextStep = () => {
+        if (currentStep === 0 && !file) {
+            alert("Please upload a document first");
+            return;
+        }
+        
+        if (currentStep === 1 && !uploadedSignature && (!sigPad.current || sigPad.current.isEmpty())) {
+            alert("Please provide a signature");
+            return;
+        }
+        
+        if (currentStep < 2) {
+            setCurrentStep(currentStep + 1);
+        }
+    };
+
+    const goToPreviousStep = () => {
+        if (currentStep > 0) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
+
+    const resetProcess = () => {
+        setFile(null);
+        setUploadedSignature(null);
+        setCurrentStep(0);
+        setAttestedPdfUrl(null);
+        if (sigPad.current) {
+            sigPad.current.clear();
+        }
+    };
+
+    // Handles PDF file upload
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const uploadedFile = event.target.files?.[0];
+        if (uploadedFile && uploadedFile.type === 'application/pdf') {
+            setFile(uploadedFile);
+        } else {
+            alert('Please upload a valid PDF file.');
+        }
+    };
+
+    // Clears the drawn signature
+    const clearSignature = () => {
+        sigPad.current?.clear();
+    };
+
+    // Handles signature upload
+    const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const uploadedFile = event.target.files?.[0];
+        if (uploadedFile && uploadedFile.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (e.target?.result) {
+                    setUploadedSignature(e.target.result as string);
+                }
+            };
+            reader.readAsDataURL(uploadedFile);
+        } else {
+            alert('Please upload a valid image file.');
+        }
+    };
+
+    // Handles PDF attestation
+    const handleAttest = async () => {
+        if (!file) {
+            alert("Please upload a document first");
+            return;
+        }
+
+        if (!uploadedSignature && (!sigPad.current || sigPad.current.isEmpty())) {
+            alert("Please provide a signature");
+            return;
+        }
+
+        setIsProcessing(true);
+
+        try {
+            const signature = uploadedSignature || sigPad.current?.toDataURL();
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const pngImage = await pdfDoc.embedPng(signature as string);
+
+            const pages = pdfDoc.getPages();
+            const lastPage = pages[pages.length - 1];
+            const { width } = lastPage.getSize();
+
+            // Add signature to bottom right of the last page
+            lastPage.drawImage(pngImage, {
+                x: width - 150,
+                y: 50,
+                width: 100,
+                height: 50,
+            });
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            
+            setAttestedPdfUrl(url);
+            setCurrentStep(2); // Move to download step
+        } catch (error) {
+            console.error("Error attesting document:", error);
+            alert("Error attesting document. Please try again.");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // Handles drag-and-drop for PDF
+    const handlePDFDrop = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        const droppedFile = event.dataTransfer.files[0];
+        if (droppedFile && droppedFile.type === 'application/pdf') {
+            setFile(droppedFile);
+        } else {
+            alert('Please upload a valid PDF file.');
+        }
+    };
+
+    // Handles drag-and-drop for Signature
+    const handleSignatureDrop = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        const droppedFile = event.dataTransfer.files[0];
+        if (droppedFile && droppedFile.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (e.target?.result) {
+                    setUploadedSignature(e.target.result as string);
+                }
+            };
+            reader.readAsDataURL(droppedFile);
+        } else {
+            alert('Please upload a valid image file.');
+        }
+    };
+
+    // Step indicator component
+    const StepIndicator = () => {
+        return (
+            <div className="w-full max-w-4xl mb-4 sm:mb-8">
+                <div className={`p-3 sm:p-6 ${darkMode ? 'bg-gray-800/90' : 'bg-white/90'} rounded-2xl shadow-lg backdrop-blur`}>
+                    <div className="flex items-center justify-between">
+                        {/* Step 1 */}
+                        <div className="flex flex-col items-center">
+                            <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-1 sm:mb-2 ${
+                                currentStep >= 0 
+                                    ? 'bg-blue-500 text-white' 
+                                    : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                            }`}>
+                                <svg width="16" height="16" className="sm:hidden stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <polyline points="14 2 14 8 20 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <svg width="24" height="24" className="hidden sm:block stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <polyline points="14 2 14 8 20 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <span className={`text-xs sm:text-sm font-medium ${currentStep === 0 ? 'text-blue-500' : ''}`}>Upload</span>
+                        </div>
+                        
+                        {/* Connector Line */}
+                        <div className={`h-1 flex-1 mx-1 sm:mx-2 ${
+                            currentStep > 0 ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-gray-200'
+                        }`}></div>
+                        
+                        {/* Step 2 */}
+                        <div className="flex flex-col items-center">
+                            <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-1 sm:mb-2 ${
+                                currentStep >= 1 
+                                    ? 'bg-blue-500 text-white' 
+                                    : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                            }`}>
+                                <svg width="16" height="16" className="sm:hidden stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <svg width="24" height="24" className="hidden sm:block stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M8 16h8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <span className={`text-xs sm:text-sm font-medium ${currentStep === 1 ? 'text-blue-500' : ''}`}>Signature</span>
+                        </div>
+                        
+                        {/* Connector Line */}
+                        <div className={`h-1 flex-1 mx-1 sm:mx-2 ${
+                            currentStep > 1 ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-gray-200'
+                        }`}></div>
+                        
+                        {/* Step 3 */}
+                        <div className="flex flex-col items-center">
+                            <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-1 sm:mb-2 ${
+                                currentStep >= 2 
+                                    ? 'bg-blue-500 text-white' 
+                                    : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                            }`}>
+                                <svg width="16" height="16" className="sm:hidden stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <polyline points="7 10 12 15 17 10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <svg width="24" height="24" className="hidden sm:block stroke-current" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <polyline points="7 10 12 15 17 10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <line x1="12" y1="15" x2="12" y2="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <span className={`text-xs sm:text-sm font-medium ${currentStep === 2 ? 'text-blue-500' : ''}`}>Download</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className={`p-2 sm:p-5 min-h-screen flex flex-col items-center justify-start box-border ${
+            darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'
+        }`}>
+            {/* Bento-style Header */}
+            <div className={`flex flex-col sm:flex-row justify-between items-center w-full mb-4 sm:mb-8 ${
+                darkMode ? 'bg-gray-800/80' : 'bg-white/80'
+            } p-3 sm:p-4 md:p-6 rounded-2xl shadow-lg backdrop-blur`}>
+                <div className="flex items-center gap-3 mb-3 sm:mb-0">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                        className={`${darkMode ? 'stroke-white' : 'stroke-gray-900'}`}>
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M2 17L12 22L22 17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M2 12L12 17L22 12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <h1 className={`text-xl sm:text-2xl font-bold ${
+                        darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                        Document Attestation
+                    </h1>
+                </div>
+                
+                {/* Toggle Switch for Dark Mode */}
+                <div className="flex items-center gap-2">
+                    <span className="text-sm">
+                        {darkMode ? 
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={darkMode ? "stroke-white" : "stroke-gray-900"}>
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg> : 
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={darkMode ? "stroke-white" : "stroke-gray-900"}>
+                                <circle cx="12" cy="12" r="5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="12" y1="1" x2="12" y2="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="12" y1="21" x2="12" y2="23" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="1" y1="12" x2="3" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="21" y1="12" x2="23" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        }
+                    </span>
+                    <div 
+                        onClick={toggleDarkMode}
+                        className={`relative w-12 h-6 rounded-full cursor-pointer toggle-bg flex items-center p-0.5 ${
+                            darkMode ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                    >
+                        <div className={`absolute w-5 h-5 bg-white rounded-full shadow toggle-thumb ${
+                            darkMode ? 'left-[26px]' : 'left-0.5'
+                        }`}></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Explanation Section */}
+            {showExplanation ? (
+                <div className={`w-full max-w-4xl ${
+                    darkMode ? 'bg-gray-800/80' : 'bg-white/80'
+                } p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg backdrop-blur mb-6 sm:mb-8`}>
+                    <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">How It Works</h2>
+                    <p className="text-center mb-4 sm:mb-6 text-sm sm:text-base">
+                        This website allows you to add your signature to documents by uploading a PDF and providing a signature.
+                        The document with your signature will be ready to download in seconds.
+                    </p>
+                    
+                    {/* Steps Animation */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                        {/* Step 1 */}
+                        <div className={`p-3 sm:p-5 rounded-xl ${
+                            activeStep === 0 
+                                ? (darkMode ? 'bg-blue-900/40' : 'bg-blue-50')
+                                : (darkMode ? 'bg-gray-700/60' : 'bg-gray-50')
+                        }`}>
+                            <div className="flex justify-center mb-3 sm:mb-4">
+                                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${
+                                    activeStep === 0 
+                                        ? 'bg-blue-500 text-white' 
+                                        : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                                }`}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                        className={activeStep === 0 ? "stroke-white" : darkMode ? "stroke-gray-300" : "stroke-gray-600"}>
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <polyline points="14 2 14 8 20 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h3 className={`text-base sm:text-lg font-semibold text-center mb-1 sm:mb-2 ${
+                                activeStep === 0 ? 'text-blue-500' : ''
+                            }`}>Step 1: Upload Document</h3>
+                            <p className="text-center text-xs sm:text-sm">
+                                Upload your PDF document that needs to be attested with your signature.
+                            </p>
+                        </div>
+                        
+                        {/* Step 2 */}
+                        <div className={`p-3 sm:p-5 rounded-xl ${
+                            activeStep === 1 
+                                ? (darkMode ? 'bg-blue-900/40' : 'bg-blue-50')
+                                : (darkMode ? 'bg-gray-700/60' : 'bg-gray-50')
+                        }`}>
+                            <div className="flex justify-center mb-3 sm:mb-4">
+                                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${
+                                    activeStep === 1 
+                                        ? 'bg-blue-500 text-white' 
+                                        : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                                }`}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                        className={activeStep === 1 ? "stroke-white" : darkMode ? "stroke-gray-300" : "stroke-gray-600"}>
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M6 9l6 6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M8 16h8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h3 className={`text-base sm:text-lg font-semibold text-center mb-1 sm:mb-2 ${
+                                activeStep === 1 ? 'text-blue-500' : ''
+                            }`}>Step 2: Add Signature</h3>
+                            <p className="text-center text-xs sm:text-sm">
+                                Draw your signature directly or upload an image of your signature.
+                            </p>
+                        </div>
+                        
+                        {/* Step 3 */}
+                        <div className={`p-3 sm:p-5 rounded-xl ${
+                            activeStep === 2 
+                                ? (darkMode ? 'bg-blue-900/40' : 'bg-blue-50')
+                                : (darkMode ? 'bg-gray-700/60' : 'bg-gray-50')
+                        }`}>
+                            <div className="flex justify-center mb-3 sm:mb-4">
+                                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${
+                                    activeStep === 2 
+                                        ? 'bg-blue-500 text-white' 
+                                        : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200'
+                                }`}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                        className={activeStep === 2 ? "stroke-white" : darkMode ? "stroke-gray-300" : "stroke-gray-600"}>
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <polyline points="7 10 12 15 17 10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <line x1="12" y1="15" x2="12" y2="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h3 className={`text-base sm:text-lg font-semibold text-center mb-1 sm:mb-2 ${
+                                activeStep === 2 ? 'text-blue-500' : ''
+                            }`}>Step 3: Download</h3>
+                            <p className="text-center text-xs sm:text-sm">
+                                Download your attested document with the signature embedded.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {/* Features */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6">
+                        <div className={`p-3 sm:p-4 rounded-lg ${
+                            darkMode ? 'bg-gray-700/60' : 'bg-gray-50'
+                        } flex items-start gap-2 sm:gap-3`}>
+                            <div className={`p-1.5 sm:p-2 rounded-full ${
+                                darkMode ? 'bg-blue-900/40' : 'bg-blue-100'
+                            }`}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                    className={`${darkMode ? 'stroke-blue-400' : 'stroke-blue-500'}`}>
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <polyline points="22 4 12 14.01 9 11.01" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 className="text-sm sm:text-base font-medium mb-0.5 sm:mb-1">No Registration Required</h4>
+                                <p className="text-xs sm:text-sm opacity-80">Use the service instantly without creating an account.</p>
+                            </div>
+                        </div>
+                        <div className={`p-3 sm:p-4 rounded-lg ${
+                            darkMode ? 'bg-gray-700/60' : 'bg-gray-50'
+                        } flex items-start gap-2 sm:gap-3`}>
+                            <div className={`p-1.5 sm:p-2 rounded-full ${
+                                darkMode ? 'bg-blue-900/40' : 'bg-blue-100'
+                            }`}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                    className={`${darkMode ? 'stroke-blue-400' : 'stroke-blue-500'}`}>
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 className="text-sm sm:text-base font-medium mb-0.5 sm:mb-1">Secure Processing</h4>
+                                <p className="text-xs sm:text-sm opacity-80">Your documents never leave your browser.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-center">
+                        <button 
+                            onClick={skipExplanation}
+                            className={`px-4 py-2 rounded-lg ${
+                                darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+                            } text-white font-medium`}
+                        >
+                            Get Started
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                /* Main Content Section */
+                <div className={`w-full max-w-4xl ${
+                    darkMode ? 'bg-gray-800/80' : 'bg-white/80'
+                } p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg backdrop-blur`}>
+                    <StepIndicator />
+                    
+                    {/* Step Content Container */}
+                    <div className="w-full max-w-4xl px-2 sm:px-0">
+                        <div className={`p-4 sm:p-6 ${
+                            darkMode ? 'bg-gray-800/90' : 'bg-white/90'
+                        } rounded-2xl shadow-lg backdrop-blur mb-6 sm:mb-8`}>
+                            
+                            {/* Step 1: Upload Document */}
+                            {currentStep === 0 && (
+                                <div className="flex flex-col items-center">
+                                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Step 1: Upload Your Document</h2>
+                                    
+                                    <div
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={handlePDFDrop}
+                                        className={`p-3 sm:p-5 border-2 border-dashed ${
+                                            darkMode ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50/80'
+                                        } rounded-lg text-center w-full mb-4 sm:mb-6`}
+                                    >
+                                        <div className="flex flex-col items-center justify-center py-2 sm:py-4">
+                                            <svg 
+                                                width="36" 
+                                                height="36" 
+                                                viewBox="0 0 24 24" 
+                                                fill="none" 
+                                                xmlns="http://www.w3.org/2000/svg" 
+                                                className={`mb-3 sm:mb-4 ${darkMode ? 'stroke-gray-300' : 'stroke-gray-600'}`}
+                                            >
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <polyline points="14 2 14 8 20 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M12 18v-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M9 15l3 3 3-3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            
+                                            <p className={`mb-2 sm:mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                Drag & drop your PDF here, or
+                                                <label className={`ml-1 cursor-pointer ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}>
+                                                    browse
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf"
+                                                        onChange={handleFileChange}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                            </p>
+                                            <p className={`text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                Supported format: PDF
+                                            </p>
+
+                                            <label
+                                                className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                    darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+                                                } text-white rounded-lg font-medium cursor-pointer text-sm sm:text-base`}
+                                            >
+                                                Upload PDF
+                                                <input
+                                                    type="file"
+                                                    accept="application/pdf"
+                                                    onChange={handleFileChange}
+                                                    className="hidden"
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    {file && (
+                                        <div className="w-full mb-4 sm:mb-6">
+                                            <p className="mb-2 font-medium text-sm sm:text-base">Selected document:</p>
+                                            <div className={`p-2 sm:p-3 rounded-lg dark:bg-gray-700 bg-gray-100 flex items-center justify-between`}>
+                                                <div className="flex items-center">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                        className={`mr-2 sm:mr-3 ${darkMode ? 'stroke-blue-400' : 'stroke-blue-500'}`}>
+                                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                        <polyline points="14 2 14 8 20 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                    <span className="text-sm sm:text-base font-medium truncate max-w-[200px] sm:max-w-[300px]">
+                                                        {file.name}
+                                                    </span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => setFile(null)}
+                                                    className={`p-1 rounded-full ${
+                                                        darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                        className={`${darkMode ? 'stroke-gray-300' : 'stroke-gray-600'}`}>
+                                                        <line x1="18" y1="6" x2="6" y2="18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                        <line x1="6" y1="6" x2="18" y2="18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="w-full overflow-hidden rounded-lg border mb-4 sm:mb-6 max-h-[250px] sm:max-h-[400px]" style={{ height: file ? '250px' : '0' }}>
+                                        {file && (
+                                            <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
+                                                <Viewer fileUrl={URL.createObjectURL(file)}/>
+                                            </Worker>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="flex justify-end w-full">
+                                        <button 
+                                            onClick={goToNextStep}
+                                            disabled={!file}
+                                            className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                !file 
+                                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                                    : darkMode 
+                                                        ? 'bg-blue-600 hover:bg-blue-700' 
+                                                        : 'bg-blue-500 hover:bg-blue-600'
+                                            } text-white rounded-lg font-medium transition-colors flex items-center text-sm sm:text-base`}
+                                        >
+                                            Next Step
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                className="stroke-white ml-2">
+                                                <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <polyline points="12 5 19 12 12 19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Step 2: Add Signature */}
+                            {currentStep === 1 && (
+                                <div className="flex flex-col items-center">
+                                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Step 2: Add Your Signature</h2>
+                                    
+                                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                                        {/* Draw Signature */}
+                                        <div className={`p-3 sm:p-5 border-2 border-dashed ${
+                                            darkMode ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50/80'
+                                        } rounded-lg flex flex-col items-center`}>
+                                            <h3 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Draw Your Signature</h3>
+                                            <div className={`w-full border-2 ${
+                                                darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'
+                                            } rounded-lg mb-3 sm:mb-4`}>
+                                                <SignatureCanvas
+                                                    ref={sigPad}
+                                                    canvasProps={{
+                                                        className: 'sigCanvas',
+                                                        width: 500,
+                                                        height: 200,
+                                                    }}
+                                                    backgroundColor={darkMode ? '#1f2937' : 'white'}
+                                                    penColor={darkMode ? 'white' : 'black'}
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={clearSignature}
+                                                className={`px-3 py-1 rounded ${
+                                                    darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                }`}
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Upload Signature */}
+                                        <div className={`p-3 sm:p-5 border-2 border-dashed ${
+                                            darkMode ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50/80'
+                                        } rounded-lg flex flex-col items-center`}>
+                                            <h3 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Upload Signature Image</h3>
+                                            <div
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={handleSignatureDrop}
+                                                className={`p-3 sm:p-5 border-2 border-dashed ${
+                                                    darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-white'
+                                                } rounded-lg text-center w-full mb-3 sm:mb-4 flex flex-col items-center justify-center min-h-[120px] sm:min-h-[150px]`}
+                                            >
+                                                {!uploadedSignature ? (
+                                                    <>
+                                                        <svg 
+                                                            width="28" 
+                                                            height="28" 
+                                                            viewBox="0 0 24 24" 
+                                                            fill="none" 
+                                                            xmlns="http://www.w3.org/2000/svg" 
+                                                            className={`mb-2 sm:mb-3 ${darkMode ? 'stroke-gray-300' : 'stroke-gray-600'}`}
+                                                        >
+                                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                            <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                            <polyline points="21 15 16 10 5 21" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                        </svg>
+                                                        <p className="mb-2 text-xs sm:text-sm">Drag and drop your signature image</p>
+                                                        <label
+                                                            className={`px-3 py-1 rounded ${
+                                                                darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                            } cursor-pointer`}
+                                                        >
+                                                            Browse Files
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleSignatureUpload}
+                                                                className="hidden"
+                                                            />
+                                                        </label>
+                                                    </>
+                                                ) : (
+                                                    <div className="flex flex-col items-center">
+                                                        <img src={uploadedSignature} alt="Uploaded Signature" className="max-w-full max-h-[100px] sm:max-h-[120px] border border-gray-300 p-2 bg-white mb-2 sm:mb-3"/>
+                                                        <button 
+                                                            onClick={() => setUploadedSignature(null)}
+                                                            className={`px-3 py-1 rounded ${
+                                                                darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                            }`}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between w-full">
+                                        <button 
+                                            onClick={goToPreviousStep}
+                                            className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                                            } rounded-lg font-medium text-sm sm:text-base`}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                className="mr-2">
+                                                <path d="M19 12H5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M12 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            Previous
+                                        </button>
+                                        
+                                        <button
+                                            onClick={handleAttest}
+                                            disabled={!file || (!uploadedSignature && (!sigPad.current || sigPad.current.isEmpty()))}
+                                            className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                !file || (!uploadedSignature && (!sigPad.current || sigPad.current.isEmpty()))
+                                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                                    : darkMode 
+                                                        ? 'bg-blue-600 hover:bg-blue-700' 
+                                                        : 'bg-blue-500 hover:bg-blue-600'
+                                            } text-white rounded-lg font-medium flex items-center text-sm sm:text-base`}
+                                        >
+                                            {isProcessing ? (
+                                                <>
+                                                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Create Attested Document
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                        className="stroke-white ml-2">
+                                                        <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                        <polyline points="12 5 19 12 12 19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Step 3: Download */}
+                            {currentStep === 2 && (
+                                <div className="flex flex-col items-center">
+                                    <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Step 3: Download Your Attested Document</h2>
+                                    
+                                    <div className={`p-4 sm:p-8 ${
+                                        darkMode ? 'bg-gray-700/50' : 'bg-green-50/80'
+                                    } rounded-lg w-full mb-6 sm:mb-8 flex flex-col items-center justify-center`}>
+                                        <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full ${
+                                            darkMode ? 'bg-green-500' : 'bg-green-100'
+                                        } flex items-center justify-center mb-3 sm:mb-4`}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                className={`${darkMode ? 'stroke-white' : 'stroke-green-600'}`}>
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <polyline points="22 4 12 14.01 9 11.01" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Your Document is Ready!</h3>
+                                        <p className="text-center mb-4 sm:mb-6 text-xs sm:text-sm">
+                                            Your document has been successfully attested with your signature.
+                                            You can now download it or start over with a new document.
+                                        </p>
+                                        
+                                        <div className="flex flex-wrap gap-3 sm:gap-4 justify-center">
+                                            <a 
+                                                href={attestedPdfUrl || '#'}
+                                                download="attested-document.pdf"
+                                                className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                    darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+                                                } text-white rounded-lg font-medium flex items-center text-sm sm:text-base`}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                    className="stroke-white mr-2">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    <polyline points="7 10 12 15 17 10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    <line x1="12" y1="15" x2="12" y2="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                                Download Attested Document
+                                            </a>
+                                            
+                                            <button 
+                                                onClick={resetProcess}
+                                                className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                    darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                                                } rounded-lg font-medium text-sm sm:text-base`}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                    className={`mr-2 ${darkMode ? 'stroke-white' : 'stroke-gray-700'}`}>
+                                                    <path d="M3 2v6h6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    <path d="M3 13a9 9 0 1 0 3-7.7L3 8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                                Start Over
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-start w-full">
+                                        <button 
+                                            onClick={goToPreviousStep}
+                                            className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                                                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                                            } rounded-lg font-medium text-sm sm:text-base`}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                                className={`mr-2 ${darkMode ? 'stroke-white' : 'stroke-gray-700'}`}>
+                                                <path d="M19 12H5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M12 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            Previous Step
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Author Information */}
+            <p className={`mt-6 sm:mt-8 text-xs sm:text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Created with ❤️ by 
+                <a 
+                    href="https://github.com/derrick070" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={`${darkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-500 hover:text-blue-600'} no-underline hover:underline`}
+                >
+                    Derrick D'Souza
+                </a>
+            </p>
+            <Analytics/>
+            <SpeedInsights />
+        </div>
+    );
+}
+
+export default App;

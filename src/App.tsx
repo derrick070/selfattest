@@ -1,346 +1,188 @@
-import React, {useRef, useState} from 'react';
-import {Viewer, Worker} from '@react-pdf-viewer/core';
-import '@react-pdf-viewer/core/lib/styles/index.css';
-// @ts-ignore
-import SignatureCanvas from 'react-signature-canvas';
-import {PDFDocument} from 'pdf-lib';
-import {Analytics} from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/react"
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+
+// Components
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import StepIndicator from './components/ui/StepIndicator';
+import ExplanationSection from './components/ui/ExplanationSection';
+import NavigationControls from './components/ui/NavigationControls';
+import UploadStep from './components/steps/UploadStep';
+import SignatureStep from './components/steps/SignatureStep';
+import DownloadStep from './components/steps/DownloadStep';
+
+// Hooks
+import useAttestation from './hooks/useAttestation';
 
 function App() {
-    const [file, setFile] = useState<File | null>(null);
-    const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
-    const [darkMode, setDarkMode] = useState(false); // State for light/dark mode
-    const sigPad = useRef<SignatureCanvas>(null);
+  const {
+    darkMode,
+    currentStep,
+    file,
+    uploadedSignature,
+    attestedPdfUrl,
+    isProcessing,
+    showExplanation,
+    hasSignature,
+    applicationStarted,
+    sigPad,
+    toggleDarkMode,
+    startApplication,
+    goToNextStep,
+    goToPreviousStep,
+    resetProcess,
+    clearSignature,
+    handleFileChange,
+    handlePDFDrop,
+    handleSignatureUpload,
+    handleSignatureDrop,
+    handleAttest,
+    handleSignatureEnd,
+    setShowExplanation,
+    setFile,
+    setUploadedSignature,
+  } = useAttestation();
 
-    // Toggle light/dark mode
-    const toggleDarkMode = () => {
-        setDarkMode((prev) => !prev);
-    };
-// Handles PDF file upload
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const uploadedFile = event.target.files?.[0];
-        if (uploadedFile && uploadedFile.type === 'application/pdf') {
-            setFile(uploadedFile);
-        } else {
-            alert('Please upload a valid PDF file.');
-        }
-    };
-
-    // Clears the drawn signature
-    const clearSignature = () => {
-        sigPad.current?.clear();
-    };
-
-    // Handles signature upload
-    const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const uploadedFile = event.target.files?.[0];
-        if (uploadedFile && uploadedFile.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (e.target?.result) {
-                    setUploadedSignature(e.target.result as string);
-                }
-            };
-            reader.readAsDataURL(uploadedFile);
-        } else {
-            alert('Please upload a valid image file.');
-        }
-    };
-
-    const handleAttest = async () => {
-        if (!file || (!sigPad.current && !uploadedSignature)) {
-            alert('Please upload a PDF and provide a signature first.');
-            return;
-        }
-
-        try {
-            const fileArrayBuffer = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(fileArrayBuffer);
-            const newPdfDoc = await PDFDocument.create();
-            const originalPages = pdfDoc.getPages();
-            for (let i = 0; i < originalPages.length; i++) {
-                const originalPage = originalPages[i];
-                const { width, height } = originalPage.getSize();
-                const isLastPage = i === originalPages.length - 1;
-                const extraHeight = isLastPage ? 100 : 0;
-
-                const newPage = newPdfDoc.addPage([width, height + extraHeight]);
-                const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
-                const embeddedPage = await newPdfDoc.embedPage(copiedPage);
-                newPage.drawPage(embeddedPage, { x: 0, y: extraHeight, width, height });
-
-                if (isLastPage) {
-                    let signatureImageBytes;
-
-                    if (uploadedSignature) {
-                        signatureImageBytes = await fetch(uploadedSignature).then((res) =>
-                            res.arrayBuffer()
-                        );
-                    } else {
-                        const signatureImage = sigPad.current?.toDataURL('image/png');
-                        signatureImageBytes = await fetch(signatureImage!).then((res) =>
-                            res.arrayBuffer()
-                        );
-                    }
-
-                    const signatureImageEmbed = await newPdfDoc.embedPng(signatureImageBytes);
-                    newPage.drawImage(signatureImageEmbed, {
-                        x: 50,
-                        y: 20,
-                        width: 200,
-                        height: 50,
-                    });
-                }
-            }
-
-            const pdfBytes = await newPdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'attested-document.pdf';
-            link.click();
-        } catch (error) {
-            console.error('Error while attesting the document:', error);
-        }
-    };
-    const handlePDFDrop = (event: React.DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        const droppedFile = event.dataTransfer.files[0];
-        if (droppedFile && droppedFile.type === 'application/pdf') {
-            setFile(droppedFile);
-        } else {
-            alert('Please upload a valid PDF file.');
-        }
-    };
-
-    // Handles drag-and-drop for Signature
-    const handleSignatureDrop = (event: React.DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        const droppedFile = event.dataTransfer.files[0];
-        if (droppedFile && droppedFile.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (e.target?.result) {
-                    setUploadedSignature(e.target.result as string);
-                }
-            };
-            reader.readAsDataURL(droppedFile);
-        } else {
-            alert('Please upload a valid image file.');
-        }
-    };
-
-
-    return (
-        <div
-            style={{
-                padding: '20px',
-                backgroundColor: darkMode ? '#121212' : '#f0f0f0',
-                color: darkMode ? '#ffffff' : '#000000',
-                minHeight: '100vh', // Ensures the body occupies the full viewport
-                margin: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center', // Centers the content horizontally
-                justifyContent: 'flex-start', // Ensures content starts at the top
-                boxSizing: 'border-box',
-            }}
-        >
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                marginBottom: '20px'
-            }}>
-                <h1 style={{margin: 0}}>Document Attestation with Signature</h1>
-                <button
-                    onClick={toggleDarkMode}
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: darkMode ? '#ffffff' : '#121212',
-                        color: darkMode ? '#121212' : '#ffffff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                    }}
-                >
-                    {darkMode ? 'Light Mode' : 'Dark Mode'}
-                </button>
+  return (
+    <div className={`min-h-screen flex flex-col items-center ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <div className="container mx-auto px-4 py-6 flex-1 flex flex-col items-center">
+        {/* Header */}
+        <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+        
+        {/* Explanation Section */}
+        <ExplanationSection 
+          showExplanation={showExplanation} 
+          setShowExplanation={setShowExplanation}
+          startApplication={startApplication}
+          darkMode={darkMode} 
+        />
+        
+        {applicationStarted && (
+          <>
+            {/* Step Indicator */}
+            <StepIndicator 
+              currentStep={currentStep} 
+              totalSteps={3} 
+              darkMode={darkMode} 
+            />
+            
+            {/* Step Content Container */}
+            <div className="w-full max-w-4xl px-2 sm:px-0">
+              <div className={`p-4 sm:p-6 ${
+                darkMode ? 'bg-gray-800/90' : 'bg-white/90'
+              } rounded-2xl shadow-lg backdrop-blur mb-6 sm:mb-8`}>
+                
+                {/* Step 1: Upload Document */}
+                {currentStep === 0 && (
+                  <UploadStep 
+                    file={file}
+                    setFile={setFile}
+                    handleFileChange={handleFileChange}
+                    handlePDFDrop={handlePDFDrop}
+                    darkMode={darkMode}
+                  />
+                )}
+                
+                {/* Step 2: Add Signature */}
+                {currentStep === 1 && (
+                  <SignatureStep 
+                    sigPad={sigPad}
+                    uploadedSignature={uploadedSignature}
+                    setUploadedSignature={setUploadedSignature}
+                    clearSignature={clearSignature}
+                    handleSignatureDrop={handleSignatureDrop}
+                    handleSignatureUpload={handleSignatureUpload}
+                    handleSignatureEnd={handleSignatureEnd}
+                    darkMode={darkMode}
+                  />
+                )}
+                
+                {/* Step 3: Download */}
+                {currentStep === 2 && (
+                  <DownloadStep 
+                    attestedPdfUrl={attestedPdfUrl}
+                    resetProcess={resetProcess}
+                    darkMode={darkMode}
+                  />
+                )}
+                
+                {/* Navigation Controls */}
+                {currentStep < 2 && (
+                  <div className="mt-6 sm:mt-8">
+                    {currentStep === 0 && (
+                      <NavigationControls 
+                        currentStep={currentStep}
+                        goToPreviousStep={goToPreviousStep}
+                        goToNextStep={goToNextStep}
+                        isNextDisabled={!file}
+                        darkMode={darkMode}
+                      />
+                    )}
+                    
+                    {currentStep === 1 && (
+                      <div className="flex justify-between w-full">
+                        <button
+                          onClick={goToPreviousStep}
+                          className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                            darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                          } rounded-lg font-medium text-sm sm:text-base flex items-center`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                            className={`mr-2 ${darkMode ? 'stroke-white' : 'stroke-gray-700'}`}>
+                            <path d="M19 12H5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Previous
+                        </button>
+                        
+                        <button 
+                          onClick={handleAttest}
+                          disabled={!file || (!uploadedSignature && (!hasSignature))}
+                          className={`px-4 sm:px-6 py-2 sm:py-3 ${
+                            !file || (!uploadedSignature && (!hasSignature))
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : darkMode 
+                                ? 'bg-blue-600 hover:bg-blue-700' 
+                                : 'bg-blue-500 hover:bg-blue-600'
+                          } text-white rounded-lg font-medium flex items-center text-sm sm:text-base`}
+                        >
+                          {isProcessing ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              Create Attested Document
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                                className="stroke-white ml-2">
+                                <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <polyline points="12 5 19 12 12 19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-
-            <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handlePDFDrop}
-                style={{
-                    padding: '20px',
-                    border: `2px dashed ${darkMode ? '#ffffff' : '#ccc'}`,
-                    borderRadius: '10px',
-                    textAlign: 'center',
-                    width: '80%',
-                    backgroundColor: darkMode ? '#1e1e1e' : '#ffffff',
-                }}
-            >
-                <p>Drag and drop your document to be attested here or click to upload. (Only .pdf files)</p>
-
-                <label
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: darkMode ? '#ffffff' : '#121212',
-                        color: darkMode ? '#121212' : '#ffffff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        display: 'inline-block',
-                        textAlign: 'center',
-                    }}
-                >
-                    Upload PDF
-                    <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        style={{
-                            display: 'none', // Hide the default input
-                        }}
-                    />
-                </label>
-            </div>
-
-            <div
-                style={{
-                    margin: '20px 0',
-                    border: `1px solid ${darkMode ? '#ffffff' : '#ccc'}`,
-                    // not more than 70% of the view port
-
-                    width: '80%', // Ensures responsive design
-                    overflow: 'auto',
-                    backgroundColor: darkMode ? '#1e1e1e' : '#ffffff',
-                }}
-            >
-                {file && (
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
-                        <Viewer fileUrl={URL.createObjectURL(file)}/>
-                    </Worker>
-                )
-                }
-            </div>
-
-            <h2>Provide Your Signature</h2>
-
-            {/* Draw Signature */}
-            <div
-                style={{
-                    border: `2px dashed ${darkMode ? '#ffffff' : '#ccc'}`,
-                    padding: '10px',
-                    maxWidth: '500px',
-                    maxHeight: '150px',
-                    backgroundColor: darkMode ? '#1e1e1e' : '#ffffff',
-                }}
-            >
-                <SignatureCanvas
-                    ref={sigPad}
-                    penColor="black"
-                    canvasProps={{
-                        width: 300,
-                        height: 120,
-                        className: 'sigCanvas',
-                    }}
-                />
-            </div>
-            <div style={{margin: '10px 0'}}>
-                <button onClick={clearSignature} style={{
-                    padding: '10px 20px',
-                    backgroundColor: darkMode ? '#ffffff' : '#121212',
-                    color: darkMode ? '#121212' : '#ffffff',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    display: 'inline-block',
-                    fontSize: '16px',
-                }}>Clear Signature
-                </button>
-            </div>
-            <h2>Or Upload Signature</h2>
-            <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleSignatureDrop}
-                style={{
-                    padding: '20px',
-                    border: `2px dashed ${darkMode ? '#ffffff' : '#ccc'}`,
-                    borderRadius: '10px',
-                    textAlign: 'center',
-                    width: '80%',
-                    backgroundColor: darkMode ? '#1e1e1e' : '#ffffff',
-                }}
-            >
-                <p>Drag and drop your signature image here or click to upload. (Only .png file)</p>
-                <label
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: darkMode ? '#ffffff' : '#121212',
-                        color: darkMode ? '#121212' : '#ffffff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        display: 'inline-block',
-                    }}
-                >
-                    Upload Signature
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleSignatureUpload}
-                        style={{
-                            display: 'none',
-                        }}
-                    />
-                </label>
-            </div>
-            {uploadedSignature && (
-                <div>
-                    <p>Uploaded Signature Preview:</p>
-                    <img src={uploadedSignature} alt="Uploaded Signature" style={{width: '200px'}}/>
-                </div>
-            )}
-
-            <button onClick={handleAttest} style={{
-                padding: '10px 20px',
-                backgroundColor: darkMode ? '#ffffff' : '#121212',
-                color: darkMode ? '#121212' : '#ffffff',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                display: 'inline-block',
-                fontSize: '16px',
-                marginTop: '20px'
-            }}>
-                Attest and Download
-            </button>
-
-            {/* Author Information */}
-            <p style={{
-                marginTop: '20px',
-                fontSize: '14px',
-                color: darkMode ? '#ffffff' : '#000000',
-                textAlign: 'center',
-            }}>
-                Author: <a
-                href="https://www.linkedin.com/in/derrick-dsouza-007"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{color: darkMode ? '#4da6ff' : '#0066cc', textDecoration: 'none'}}
-            >
-                Derrick Dsouza
-            </a>
-            </p>
-            <Analytics/>
-            <SpeedInsights />
-        </div>
-    );
+          </>
+        )}
+      </div>
+      
+      {/* Footer */}
+      <Footer darkMode={darkMode} />
+      
+      {/* Analytics */}
+      <Analytics />
+      <SpeedInsights />
+    </div>
+  );
 }
-
 
 export default App;
