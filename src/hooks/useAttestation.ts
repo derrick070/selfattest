@@ -1,9 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { attestPdf, AttestationResult } from '../utils/pdfUtils';
 
 const useAttestation = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  // Initialize dark mode based on system preference
+  const prefersDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const [darkMode, setDarkMode] = useState(prefersDarkMode);
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
@@ -16,6 +18,23 @@ const useAttestation = () => {
   
   const sigPad = useRef<SignatureCanvas>(null);
   
+  // Listen for changes in system color scheme preference
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setDarkMode(e.matches);
+    };
+    
+    // Add listener for changes in color scheme preference
+    mediaQuery.addEventListener('change', handleChange);
+    
+    // Clean up listener on component unmount
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+  
+  // Toggle dark mode manually
   const toggleDarkMode = () => {
     setDarkMode(prev => !prev);
   };

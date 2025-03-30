@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Components
+import SEO from './components/SEO';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import StepIndicator from './components/ui/StepIndicator';
@@ -46,7 +47,9 @@ function App() {
   } = useAttestation();
 
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <>
+      <SEO />
+      <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
       <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
       
@@ -188,6 +191,7 @@ function App() {
       <Analytics />
       <SpeedInsights />
     </div>
+    </>
   );
 }
 
