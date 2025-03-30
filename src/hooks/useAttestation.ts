@@ -1,13 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { attestPdf } from '../utils/pdfUtils';
+import { attestPdf, AttestationResult } from '../utils/pdfUtils';
 
 const useAttestation = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
-  const [attestedPdfUrl, setAttestedPdfUrl] = useState<string | null>(null);
+  const [attestedDocument, setAttestedDocument] = useState<AttestationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [applicationStarted, setApplicationStarted] = useState(false);
@@ -36,7 +36,7 @@ const useAttestation = () => {
     setCurrentStep(0);
     setFile(null);
     setUploadedSignature(null);
-    setAttestedPdfUrl(null);
+    setAttestedDocument(null);
     setHasSignature(false);
     if (sigPad.current) {
       sigPad.current.clear();
@@ -54,15 +54,15 @@ const useAttestation = () => {
   
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
+    if (selectedFile && (selectedFile.type === 'application/pdf' || selectedFile.type.startsWith('image/'))) {
       setFile(selectedFile);
     }
   }, []);
   
-  const handlePDFDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  const handleFileDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type === 'application/pdf') {
+    if (droppedFile && (droppedFile.type === 'application/pdf' || droppedFile.type.startsWith('image/'))) {
       setFile(droppedFile);
     }
   }, []);
@@ -131,11 +131,11 @@ const useAttestation = () => {
     setIsProcessing(true);
     
     try {
-      const attestedUrl = await attestPdf(file, signatureDataUrl);
-      setAttestedPdfUrl(attestedUrl);
+      const attestationResult = await attestPdf(file, signatureDataUrl);
+      setAttestedDocument(attestationResult);
       setCurrentStep(2);
     } catch (error) {
-      console.error('Error attesting PDF:', error);
+      console.error('Error attesting document:', error);
       // Handle error
     } finally {
       setIsProcessing(false);
@@ -147,7 +147,7 @@ const useAttestation = () => {
     currentStep,
     file,
     uploadedSignature,
-    attestedPdfUrl,
+    attestedDocument,
     isProcessing,
     hasSignature,
     applicationStarted,
@@ -159,7 +159,7 @@ const useAttestation = () => {
     resetProcess,
     clearSignature,
     handleFileChange,
-    handlePDFDrop,
+    handleFileDrop,
     handleSignatureUpload,
     handleSignatureDrop,
     handleAttest,

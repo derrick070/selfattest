@@ -10,7 +10,14 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
     <header className="w-full py-3 sm:py-4 mb-4 sm:mb-6">
       <div className="container mx-auto px-4">
         <div className={`flex justify-between items-center p-3 sm:p-4 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-        <div className="flex items-center">
+        <a 
+          href="/" 
+          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.reload();
+          }}
+        >
           <svg
             width="28"
             height="28"
@@ -27,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
             />
           </svg>
           <h1 className="text-xl sm:text-2xl font-bold">Document Attestation</h1>
-        </div>
+        </a>
         
         {/* Dark Mode Toggle */}
         <button

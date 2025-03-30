@@ -20,7 +20,7 @@ function App() {
     currentStep,
     file,
     uploadedSignature,
-    attestedPdfUrl,
+    attestedDocument,
     isProcessing,
     hasSignature,
     applicationStarted,
@@ -32,7 +32,7 @@ function App() {
     resetProcess,
     clearSignature,
     handleFileChange,
-    handlePDFDrop,
+    handleFileDrop,
     handleSignatureUpload,
     handleSignatureDrop,
     handleAttest,
@@ -46,19 +46,21 @@ function App() {
   } = useAttestation();
 
   return (
-    <div className={`min-h-screen flex flex-col items-center ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
       <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
       
-      {!applicationStarted ? (
-        // Explanation Page
-        <ExplanationSection 
-          startApplication={startApplication}
-          darkMode={darkMode} 
-        />
-      ) : (
-        // Main Application
-        <div className="container mx-auto px-4 py-6 flex-1 flex flex-col items-center">
+      {/* Main Content - Flex-1 ensures it takes available space, pushing footer down */}
+      <main className="flex-1 flex flex-col items-center w-full">
+        {!applicationStarted ? (
+          // Explanation Page
+          <ExplanationSection 
+            startApplication={startApplication}
+            darkMode={darkMode} 
+          />
+        ) : (
+          // Main Application
+          <div className="container mx-auto px-4 py-6 flex flex-col items-center w-full">
           {/* Step Indicator */}
           <StepIndicator 
             currentStep={currentStep} 
@@ -78,7 +80,7 @@ function App() {
                   file={file}
                   setFile={setFile}
                   handleFileChange={handleFileChange}
-                  handlePDFDrop={handlePDFDrop}
+                  handleFileDrop={handleFileDrop}
                   darkMode={darkMode}
                 />
               )}
@@ -104,7 +106,7 @@ function App() {
               {/* Step 3: Download */}
               {currentStep === 2 && (
                 <DownloadStep 
-                  attestedPdfUrl={attestedPdfUrl}
+                  attestedDocument={attestedDocument}
                   resetProcess={resetProcess}
                   darkMode={darkMode}
                 />
@@ -175,8 +177,9 @@ function App() {
               )}
             </div>
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </main>
       
       {/* Footer */}
       <Footer darkMode={darkMode} />

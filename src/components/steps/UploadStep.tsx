@@ -4,7 +4,7 @@ interface UploadStepProps {
   file: File | null;
   setFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handlePDFDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleFileDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   darkMode: boolean;
 }
 
@@ -12,7 +12,7 @@ const UploadStep: React.FC<UploadStepProps> = ({
   file,
   setFile,
   handleFileChange,
-  handlePDFDrop,
+  handleFileDrop,
   darkMode,
 }) => {
   return (
@@ -21,7 +21,7 @@ const UploadStep: React.FC<UploadStepProps> = ({
       
       <div
         onDragOver={(e) => e.preventDefault()}
-        onDrop={handlePDFDrop}
+        onDrop={handleFileDrop}
         className={`p-3 sm:p-5 border-2 border-dashed ${
           darkMode ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50/80'
         } rounded-2xl text-center w-full mb-4 sm:mb-6`}
@@ -42,19 +42,19 @@ const UploadStep: React.FC<UploadStepProps> = ({
           </svg>
           
           <p className={`mb-3 sm:mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm sm:text-base`}>
-            Drag & drop your PDF here, or
+            Drag & drop your document here, or
             <label className={`ml-1 cursor-pointer ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-600'}`}>
               browse
               <input
                 type="file"
-                accept=".pdf"
+                accept=".pdf,image/*"
                 onChange={handleFileChange}
                 className="hidden"
               />
             </label>
           </p>
           <p className={`text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 sm:mb-8`}>
-            Supported format: PDF
+            Supported formats: PDF, JPG, PNG, GIF
           </p>
 
           <label
@@ -62,10 +62,10 @@ const UploadStep: React.FC<UploadStepProps> = ({
               darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
             } text-white rounded-2xl font-medium cursor-pointer text-sm sm:text-base shadow-md hover:shadow-lg transition-all w-full sm:w-auto`}
           >
-            Upload PDF
+            Upload Document
             <input
               type="file"
-              accept="application/pdf"
+              accept=".pdf,image/*"
               onChange={handleFileChange}
               className="hidden"
             />

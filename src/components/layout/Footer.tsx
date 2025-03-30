@@ -6,8 +6,8 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ darkMode }) => {
   return (
-    <footer>
-      <p className={`mt-6 sm:mt-8 text-xs sm:text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+    <footer className="w-full py-4 mt-auto">
+      <p className={`text-xs sm:text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
         Created with ❤️ by 
         <a 
           href="https://www.linkedin.com/in/derrick-dsouza-007" 

@@ -1,13 +1,14 @@
 import React from 'react';
+import { AttestationResult } from '../../utils/pdfUtils';
 
 interface DownloadStepProps {
-  attestedPdfUrl: string | null;
+  attestedDocument: AttestationResult | null;
   resetProcess: () => void;
   darkMode: boolean;
 }
 
 const DownloadStep: React.FC<DownloadStepProps> = ({
-  attestedPdfUrl,
+  attestedDocument,
   resetProcess,
   darkMode,
 }) => {
@@ -32,8 +33,8 @@ const DownloadStep: React.FC<DownloadStepProps> = ({
         
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-4 justify-center w-full">
           <a 
-            href={attestedPdfUrl || '#'}
-            download="attested-document.pdf"
+            href={attestedDocument?.url || '#'}
+            download={`attested-document${attestedDocument?.extension || '.pdf'}`}
             className={`px-4 sm:px-6 py-2 sm:py-3 ${
               darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
             } text-white rounded-2xl font-medium flex items-center justify-center text-sm sm:text-base shadow-md hover:shadow-lg transition-all w-full sm:w-auto`}
