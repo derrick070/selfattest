@@ -14,7 +14,7 @@ const SEO: React.FC<SEOProps> = ({
   description = "Free online tool to attest your documents with your signature. Upload, sign, and download your attested documents in seconds. Supports PDF and image files.",
   keywords = "document attestation, self attest, online attestation, document signing, pdf attestation, image attestation, digital signature, free attestation",
   ogImage = "/og-image.png",
-  ogUrl = "https://selfattest.vercel.app"
+  ogUrl = "https://selfattest.in"
 }) => {
   return (
     <Helmet>

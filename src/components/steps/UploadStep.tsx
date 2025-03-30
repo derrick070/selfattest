@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface UploadStepProps {
   file: File | null;
@@ -77,9 +77,10 @@ const UploadStep: React.FC<UploadStepProps> = ({
         <div className={`p-4 sm:p-6 ${
           darkMode ? 'bg-gray-800/90' : 'bg-white/90'
         } rounded-2xl shadow-lg backdrop-blur mb-6 sm:mb-8 w-full`}>
+          {/* File Info Header */}
           <div className={`p-2 sm:p-3 rounded-xl ${
             darkMode ? 'bg-gray-700' : 'bg-gray-100'
-          } flex items-center justify-between w-full`}>
+          } flex items-center justify-between w-full mb-4`}>
             <div className="flex items-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
                 className={`mr-2 sm:mr-3 ${darkMode ? 'stroke-blue-400' : 'stroke-blue-500'}`}>
@@ -95,6 +96,7 @@ const UploadStep: React.FC<UploadStepProps> = ({
               className={`p-1 rounded-full ${
                 darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
               }`}
+              aria-label="Remove file"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
                 className={`${darkMode ? 'stroke-gray-300' : 'stroke-gray-600'}`}>
@@ -103,8 +105,92 @@ const UploadStep: React.FC<UploadStepProps> = ({
               </svg>
             </button>
           </div>
+          
+          {/* Document Preview */}
+          <DocumentPreview file={file} darkMode={darkMode} />
         </div>
       )}
+    </div>
+  );
+};
+
+// Document Preview Component
+const DocumentPreview: React.FC<{ file: File, darkMode: boolean }> = ({ file, darkMode }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Clear previous preview
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    // Generate preview URL
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setPreview(objectUrl);
+      setLoading(false);
+      
+      // Clean up the URL when component unmounts
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    } catch (err) {
+      console.error('Error creating preview:', err);
+      setError('Could not generate preview for this file');
+      setLoading(false);
+    }
+  }, [file]);
+  
+  if (loading) {
+    return (
+      <div className={`flex items-center justify-center h-64 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className={`flex items-center justify-center h-64 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{error}</p>
+      </div>
+    );
+  }
+  
+  // Render based on file type
+  if (file.type === 'application/pdf') {
+    return (
+      <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 h-[500px]">
+        <iframe 
+          src={`${preview}#toolbar=0`} 
+          className="w-full h-full" 
+          title="PDF Preview"
+        />
+      </div>
+    );
+  } else if (file.type.startsWith('image/')) {
+    return (
+      <div className={`rounded-xl overflow-hidden ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} flex justify-center p-4`}>
+        <img 
+          src={preview || ''} 
+          alt="Document preview" 
+          className="max-h-[400px] object-contain rounded shadow-sm" 
+        />
+      </div>
+    );
+  }
+  
+  // Fallback for unsupported file types
+  return (
+    <div className={`flex items-center justify-center h-64 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        Preview not available for this file type
+      </p>
     </div>
   );
 };

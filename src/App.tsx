@@ -6,6 +6,7 @@ import SEO from './components/SEO';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import StepIndicator from './components/ui/StepIndicator';
+import TransitionWrapper from './components/ui/TransitionWrapper';
 import ExplanationSection from './components/ui/ExplanationSection';
 import NavigationControls from './components/ui/NavigationControls';
 import UploadStep from './components/steps/UploadStep';
@@ -78,7 +79,7 @@ function App() {
             } rounded-2xl shadow-lg backdrop-blur mb-6 sm:mb-8`}>
               
               {/* Step 1: Upload Document */}
-              {currentStep === 0 && (
+              <TransitionWrapper show={currentStep === 0}>
                 <UploadStep 
                   file={file}
                   setFile={setFile}
@@ -86,10 +87,10 @@ function App() {
                   handleFileDrop={handleFileDrop}
                   darkMode={darkMode}
                 />
-              )}
+              </TransitionWrapper>
               
               {/* Step 2: Add Signature */}
-              {currentStep === 1 && (
+              <TransitionWrapper show={currentStep === 1}>
                 <SignatureStep 
                   sigPad={sigPad}
                   uploadedSignature={uploadedSignature}
@@ -104,16 +105,16 @@ function App() {
                   textSignature={textSignature}
                   setTextSignature={setTextSignature}
                 />
-              )}
+              </TransitionWrapper>
               
               {/* Step 3: Download */}
-              {currentStep === 2 && (
+              <TransitionWrapper show={currentStep === 2}>
                 <DownloadStep 
                   attestedDocument={attestedDocument}
                   resetProcess={resetProcess}
                   darkMode={darkMode}
                 />
-              )}
+              </TransitionWrapper>
               
               {/* Navigation Controls */}
               {currentStep < 2 && (

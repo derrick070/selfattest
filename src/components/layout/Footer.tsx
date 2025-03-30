@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 interface FooterProps {
   darkMode: boolean;
@@ -6,47 +6,84 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ darkMode }) => {
   const [showDonateOptions, setShowDonateOptions] = useState(false);
-  
+
   const toggleDonateOptions = () => {
-    setShowDonateOptions(prev => !prev);
+    setShowDonateOptions((prev) => !prev);
   };
-  
+
   return (
     <footer className="w-full py-4 mt-auto flex flex-col items-center gap-3">
       {/* Donate Button */}
       <div className="flex flex-col items-center">
         <button
           onClick={toggleDonateOptions}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${darkMode 
-            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            darkMode
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          }`}
         >
-          {showDonateOptions ? 'Hide Options' : '☕ Buy me a coffee'}
+          {showDonateOptions ? "Hide Options" : "☕ Buy me a coffee"}
         </button>
-        
+
         {/* Donation Options */}
         {showDonateOptions && (
-          <div className={`mt-3 p-4 rounded-lg shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} max-w-xs`}>
-            <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-              If you found this tool helpful, consider supporting its development:
+          <div
+            className={`mt-3 p-4 rounded-lg shadow-lg ${
+              darkMode ? "bg-gray-800" : "bg-white"
+            } max-w-xs`}
+          >
+            <p
+              className={`text-sm mb-3 ${
+                darkMode ? "text-gray-300" : "text-gray-700"
+              }`}
+            >
+              If you found this tool helpful, consider supporting its
+              development:
             </p>
             <div className="flex flex-col gap-2">
-              <a 
-                href="https://paypal.me/derrickd070" 
+              <a
+                href="https://paypal.me/derrickd070"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded ${
+                  darkMode
+                    ? "bg-gray-700 hover:bg-gray-600 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+                }`}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19.5 5.25H4.5C3.67157 5.25 3 5.92157 3 6.75V17.25C3 18.0784 3.67157 18.75 4.5 18.75H19.5C20.3284 18.75 21 18.0784 21 17.25V6.75C21 5.92157 20.3284 5.25 19.5 5.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 9.75H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M7.5 15.75H10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M19.5 5.25H4.5C3.67157 5.25 3 5.92157 3 6.75V17.25C3 18.0784 3.67157 18.75 4.5 18.75H19.5C20.3284 18.75 21 18.0784 21 17.25V6.75C21 5.92157 20.3284 5.25 19.5 5.25Z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3 9.75H21"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7.5 15.75H10.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 PayPal
               </a>
-              
+
               {/* <a 
                 href="https://ko-fi.com/derrickdsouza" 
                 target="_blank"
@@ -66,18 +103,14 @@ const Footer: React.FC<FooterProps> = ({ darkMode }) => {
           </div>
         )}
       </div>
-      
+
       {/* Copyright */}
-      <p className={`text-xs sm:text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-        Created with ❤️ by 
-        <a 
-          href="https://www.linkedin.com/in/derrick-dsouza-007" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className={`${darkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-500 hover:text-blue-600'} no-underline hover:underline ml-1`}
-        >
-          Derrick D'Souza
-        </a>
+      <p
+        className={`text-xs sm:text-sm text-center ${
+          darkMode ? "text-gray-400" : "text-gray-600"
+        }`}
+      >
+        Created with ❤️ by Derrick D'Souza
       </p>
     </footer>
   );
