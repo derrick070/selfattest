@@ -71,30 +71,45 @@ const ExplanationSection: React.FC<ExplanationSectionProps> = ({
             No data is sent to any server - all processing happens directly in your browser.
           </p>
           
-          {/* Bento grid for steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {steps.map((step, index) => (
-              <div 
-                key={index}
-                className={`p-5 rounded-2xl border-2 transition-all duration-300 ease-in-out h-full flex flex-col ${
-                  activeStep === index 
-                    ? `${darkMode ? 'border-blue-500 bg-blue-900/20' : 'border-blue-500 bg-blue-50'}`
-                    : `${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50/80'}`
-                }`}
-              >
-                <div className="flex flex-col items-center text-center h-full justify-between">
-                  <div className={`mb-4 transition-transform duration-500 ease-in-out ${
-                    activeStep === index ? 'transform-gpu animate-bounce' : ''
-                  }`}>
-                    {step.icon}
+          {/* Single animated step box */}
+          <div className="w-full max-w-lg mx-auto">
+            <div 
+              className={`p-6 sm:p-8 rounded-2xl border-2 transition-all duration-300 ease-in-out flex flex-col ${
+                darkMode ? 'border-blue-500 bg-blue-900/20' : 'border-blue-500 bg-blue-50'
+              } min-h-[250px] sm:min-h-[280px]`}
+            >
+              {/* Step indicator dots */}
+              <div className="flex justify-center mb-4 sm:mb-6">
+                {steps.map((_, index) => (
+                  <div 
+                    key={index}
+                    className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-1 sm:mx-2 transition-colors ${
+                      activeStep === index
+                        ? darkMode ? 'bg-blue-400' : 'bg-blue-600'
+                        : darkMode ? 'bg-gray-600' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              
+              {/* Animated content */}
+              <div className="flex-1 flex flex-col items-center justify-between">
+                <div 
+                  className="flex flex-col items-center text-center transition-opacity duration-500 ease-in-out animate-fadeIn w-full"
+                  key={activeStep} /* Key forces re-render on step change */
+                >
+                  <div className="mb-6 sm:mb-8 transform-gpu animate-bounce">
+                    {steps[activeStep].icon}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold mb-3">{step.title}</h3>
-                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{step.description}</p>
+                    <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">{steps[activeStep].title}</h3>
+                    <p className={`text-sm sm:text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {steps[activeStep].description}
+                    </p>
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
         
